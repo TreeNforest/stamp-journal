@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>診斷測試3</title>
+</head>
+<body>
+<div id="root">載入中...</div>
+
+<script type="module">
+const rootEl = document.getElementById('root');
+
+try {
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+  rootEl.innerHTML = '步驟1: Firebase app (gstatic CDN) 載入成功<br>';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC7Puixgy8pd-YeF7HhAZQPtKRusk9wwhY",
+    authDomain: "stamp-journal-7b9cb.firebaseapp.com",
+    projectId: "stamp-journal-7b9cb",
+    storageBucket: "stamp-journal-7b9cb.firebasestorage.app",
+    messagingSenderId: "207752007024",
+    appId: "1:207752007024:web:9bbd64031f90830cbcd3b5"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  rootEl.innerHTML += '步驟2: initializeApp 成功<br>';
+
+  const { getFirestore, collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  rootEl.innerHTML += '步驟3: Firestore 模組 (gstatic CDN) 載入成功<br>';
+
+  const db = getFirestore(app);
+  rootEl.innerHTML += '步驟4: getFirestore 成功<br>';
+
+  rootEl.innerHTML += '<br>✅ 全部成功!Firebase 連線正常,改用 gstatic CDN 解決了版本問題。';
+} catch (err) {
+  rootEl.innerHTML += '<br>❌ 錯誤發生:<br><pre style="white-space:pre-wrap;color:red;">' + (err && err.stack ? err.stack : String(err)) + '</pre>';
+}
+</script>
+</body>
+</html>
