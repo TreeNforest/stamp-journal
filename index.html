@@ -1690,7 +1690,12 @@ function App() {
     try { localStorage.setItem('stamp-journal-font', font); } catch {}
   }, [font]);
 
-  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('stamp-journal-theme', next); } catch {}
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'stamps'), orderBy('date', 'desc'));
@@ -1843,7 +1848,11 @@ function App() {
               e('button', {
                 key,
                 className: 'font-option-btn' + (font === key ? ' active' : ''),
-                onClick: () => setFont(key)
+                onClick: () => {
+                  setFont(key);
+                  document.documentElement.setAttribute('data-font', key);
+                  try { localStorage.setItem('stamp-journal-font', key); } catch {}
+                }
               },
                 e('span', { className: 'font-option-name' }, name),
                 e('span', { className: 'font-option-preview', style }, preview)
