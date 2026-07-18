@@ -16,7 +16,15 @@
 ============================================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=LXGW+WenKai+TC:wght@400;500&display=swap" rel="stylesheet">
+<!-- 思源宋體、霞鶴文楷、芫荽 — 從 Google Fonts 載入 -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=LXGW+WenKai+TC:wght@400;500&family=Jf+Open+Huninn&display=swap" rel="stylesheet">
+<!-- Phosphor Icons -->
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js"></script>
+<style>
+  /* 本地字體：日星宋體、凝書體 */
+  @font-face { font-family: 'rixingsong'; src: url('./rixingsong-1.0-semibold.otf') format('opentype'); font-display: swap; }
+  @font-face { font-family: 'creamfont'; src: url('./creamfont-3.3.otf') format('opentype'); font-display: swap; }
+</style>
 
 <!-- Leaflet for OpenStreetMap -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -36,6 +44,54 @@
 
     --font-display: 'Noto Serif TC', serif;
     --font-body: 'LXGW WenKai TC', serif;
+  }
+
+  /* 字體主題 */
+  [data-font="rixingsong"] { --font-display: 'rixingsong', serif; --font-body: 'rixingsong', serif; }
+  [data-font="creamfont"]  { --font-display: 'creamfont', serif;  --font-body: 'creamfont', serif; }
+  [data-font="noto"]       { --font-display: 'Noto Serif TC', serif; --font-body: 'Noto Serif TC', serif; }
+  [data-font="lxgw"]       { --font-display: 'LXGW WenKai TC', serif; --font-body: 'LXGW WenKai TC', serif; }
+  [data-font="huninn"]     { --font-display: 'Jf Open Huninn', sans-serif; --font-body: 'Jf Open Huninn', sans-serif; }
+
+  /* 設定面板 */
+  .settings-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 280px; max-width: 90vw;
+    background: var(--bg); border-left: 1px solid var(--khaki); z-index: 200;
+    box-shadow: -8px 0 32px rgba(61,56,51,0.18); display: flex; flex-direction: column;
+    transition: transform 0.22s ease;
+  }
+  [data-theme="dark"] .settings-panel { box-shadow: -8px 0 32px rgba(0,0,0,0.4); }
+  .settings-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--khaki);
+  }
+  .settings-panel-title { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
+  .settings-close-btn { background: none; border: none; cursor: pointer; color: var(--ink-soft); font-size: 20px; padding: 4px; }
+  .settings-close-btn:hover { color: var(--vermil); }
+  .settings-body { flex: 1; overflow-y: auto; padding: 20px; }
+  .settings-section { margin-bottom: 26px; }
+  .settings-section-label { font-size: 11.5px; color: var(--ink-soft); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--khaki); }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .font-options { display: flex; flex-direction: column; gap: 8px; }
+  .font-option-btn {
+    width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--khaki);
+    background: var(--paper); color: var(--ink); cursor: pointer; text-align: left;
+    display: flex; align-items: center; justify-content: space-between; transition: all 0.12s;
+  }
+  .font-option-btn:hover { border-color: var(--steel); }
+  .font-option-btn.active { border-color: var(--vermil); background: var(--vermil-soft); }
+  .font-option-name { font-size: 14px; }
+  .font-option-preview { font-size: 16px; color: var(--ink-soft); }
+  .settings-action-btn {
+    width: 100%; padding: 10px 14px; border-radius: var(--radius); border: 1px solid var(--khaki);
+    background: var(--paper); color: var(--ink); cursor: pointer; text-align: left;
+    font-size: 14px; display: flex; align-items: center; gap: 10px; transition: all 0.12s;
+    margin-bottom: 8px;
+  }
+  .settings-action-btn:hover { border-color: var(--steel); }
+  .settings-overlay { position: fixed; inset: 0; background: rgba(61,56,51,0.3); z-index: 199; }
 
     --radius: 4px;
     --shadow-card: 0 1px 2px rgba(61,56,51,0.06), 0 4px 14px rgba(61,56,51,0.05);
@@ -1598,6 +1654,11 @@ function App() {
     try { return localStorage.getItem('stamp-journal-theme') || 'light'; }
     catch { return 'light'; }
   });
+  const [font, setFont] = useState(() => {
+    try { return localStorage.getItem('stamp-journal-font') || 'lxgw'; }
+    catch { return 'lxgw'; }
+  });
+  const [showSettings, setShowSettings] = useState(false);
   const [stamps, setStamps] = useState([]);
   const [categories, setCategories] = useState([]);
   const [mediumTags, setMediumTags] = useState([]);
@@ -1622,6 +1683,11 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     try { localStorage.setItem('stamp-journal-theme', theme); } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font', font);
+    try { localStorage.setItem('stamp-journal-font', font); } catch {}
+  }, [font]);
 
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
@@ -1736,11 +1802,63 @@ function App() {
       e('div', { className: 'header-actions' },
         e('button', {
           className: 'theme-toggle-btn',
-          onClick: toggleTheme,
-          title: theme === 'dark' ? '切換成淺色模式' : '切換成深色模式'
-        }, theme === 'dark' ? '☾' : '☀'),
-        e('button', { className: 'btn btn-sm', onClick: () => setShowMediumTagManager(true) }, '管理形式標籤'),
-        e('button', { className: 'btn btn-sm', onClick: () => setShowCategoryManager(true) }, '管理分類')
+          onClick: () => setShowSettings(true),
+          title: '設定'
+        }, e('i', { className: 'ph ph-gear', style: { fontSize: 18 } }))
+      )
+    ),
+
+    showSettings && e('div', { className: 'settings-overlay', onClick: () => setShowSettings(false) }),
+    showSettings && e('div', { className: 'settings-panel' },
+      e('div', { className: 'settings-panel-header' },
+        e('div', { className: 'settings-panel-title' }, e('i', { className: 'ph ph-gear', style: { marginRight: 8 } }), '設定'),
+        e('button', { className: 'settings-close-btn', onClick: () => setShowSettings(false) },
+          e('i', { className: 'ph ph-x' })
+        )
+      ),
+      e('div', { className: 'settings-body' },
+        e('div', { className: 'settings-section' },
+          e('div', { className: 'settings-section-label' }, '外觀'),
+          e('div', { className: 'settings-row' },
+            e('span', { className: 'settings-row-label' },
+              e('i', { className: theme === 'dark' ? 'ph ph-moon' : 'ph ph-sun' }),
+              theme === 'dark' ? '深色模式' : '淺色模式'
+            ),
+            e('button', { className: 'btn btn-sm', onClick: toggleTheme },
+              theme === 'dark' ? '切換淺色' : '切換深色'
+            )
+          )
+        ),
+        e('div', { className: 'settings-section' },
+          e('div', { className: 'settings-section-label' }, '字體'),
+          e('div', { className: 'font-options' },
+            ...[
+              { key: 'lxgw',       name: '霞鶴文楷',  preview: '蓋印紀念冊',  style: { fontFamily: "'LXGW WenKai TC', serif" } },
+              { key: 'rixingsong', name: '日星宋體',  preview: '蓋印紀念冊',  style: { fontFamily: "'rixingsong', serif" } },
+              { key: 'creamfont',  name: '凝書體',    preview: '蓋印紀念冊',  style: { fontFamily: "'creamfont', serif" } },
+              { key: 'noto',       name: '思源宋體',  preview: '蓋印紀念冊',  style: { fontFamily: "'Noto Serif TC', serif" } },
+              { key: 'huninn',     name: '芫荽',      preview: '蓋印紀念冊',  style: { fontFamily: "'Jf Open Huninn', sans-serif" } },
+            ].map(({ key, name, preview, style }) =>
+              e('button', {
+                key,
+                className: 'font-option-btn' + (font === key ? ' active' : ''),
+                onClick: () => setFont(key)
+              },
+                e('span', { className: 'font-option-name' }, name),
+                e('span', { className: 'font-option-preview', style }, preview)
+              )
+            )
+          )
+        ),
+        e('div', { className: 'settings-section' },
+          e('div', { className: 'settings-section-label' }, '管理'),
+          e('button', { className: 'settings-action-btn', onClick: () => { setShowSettings(false); setShowCategoryManager(true); } },
+            e('i', { className: 'ph ph-tree-structure' }), '管理分類'
+          ),
+          e('button', { className: 'settings-action-btn', onClick: () => { setShowSettings(false); setShowMediumTagManager(true); } },
+            e('i', { className: 'ph ph-tag' }), '管理形式標籤'
+          )
+        )
       )
     ),
 
