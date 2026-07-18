@@ -16,14 +16,15 @@
 ============================================================ -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- 思源宋體、霞鶴文楷、芫荽 — 從 Google Fonts 載入 -->
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=LXGW+WenKai+TC:wght@400;500&family=Jf+Open+Huninn&display=swap" rel="stylesheet">
-<!-- Phosphor Icons -->
-<script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js"></script>
+<!-- 思源宋體、霞鶴文楷 — 從 Google Fonts 載入 -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=LXGW+WenKai+TC:wght@400;500&display=swap" rel="stylesheet">
+<!-- Phosphor Icons — 用 CSS class 方式引入 -->
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
 <style>
-  /* 本地字體：日星宋體、凝書體 */
+  /* 本地字體：日星宋體、凝書體、芫荽、粉圓 */
   @font-face { font-family: 'rixingsong'; src: url('./rixingsong-1.0-semibold.otf') format('opentype'); font-display: swap; }
   @font-face { font-family: 'creamfont'; src: url('./creamfont-3.3.otf') format('opentype'); font-display: swap; }
+  @font-face { font-family: 'huninn'; src: url('./jf-openhuninn-2.1.ttf') format('truetype'); font-display: swap; }
 </style>
 
 <!-- Leaflet for OpenStreetMap -->
@@ -51,7 +52,7 @@
   [data-font="creamfont"]  { --font-display: 'creamfont', serif;  --font-body: 'creamfont', serif; }
   [data-font="noto"]       { --font-display: 'Noto Serif TC', serif; --font-body: 'Noto Serif TC', serif; }
   [data-font="lxgw"]       { --font-display: 'LXGW WenKai TC', serif; --font-body: 'LXGW WenKai TC', serif; }
-  [data-font="huninn"]     { --font-display: 'Jf Open Huninn', sans-serif; --font-body: 'Jf Open Huninn', sans-serif; }
+  [data-font="huninn"]     { --font-display: 'huninn', sans-serif; --font-body: 'huninn', sans-serif; }
 
   /* 設定面板 */
   .settings-panel {
@@ -1837,7 +1838,7 @@ function App() {
               { key: 'rixingsong', name: '日星宋體',  preview: '蓋印紀念冊',  style: { fontFamily: "'rixingsong', serif" } },
               { key: 'creamfont',  name: '凝書體',    preview: '蓋印紀念冊',  style: { fontFamily: "'creamfont', serif" } },
               { key: 'noto',       name: '思源宋體',  preview: '蓋印紀念冊',  style: { fontFamily: "'Noto Serif TC', serif" } },
-              { key: 'huninn',     name: '芫荽',      preview: '蓋印紀念冊',  style: { fontFamily: "'Jf Open Huninn', sans-serif" } },
+              { key: 'huninn',     name: 'JF 粉圓',   preview: '蓋印紀念冊',  style: { fontFamily: "'huninn', sans-serif" } },
             ].map(({ key, name, preview, style }) =>
               e('button', {
                 key,
