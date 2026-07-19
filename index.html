@@ -64,6 +64,10 @@
   [data-columns="1"] .stamp-grid { grid-template-columns: 1fr !important; }
   [data-columns="2"] .stamp-grid { grid-template-columns: repeat(2, 1fr) !important; }
 
+  /* 單欄模式：卡片變寬，圖片改成正方形避免過度裁切 */
+  [data-columns="1"] .stamp-photo,
+  [data-columns="1"] .stamp-photo-placeholder { height: auto; aspect-ratio: 1 / 1; }
+
   /* 字體主題 */
   [data-font="rixingsong"] { --font-display: 'rixingsong', serif; --font-body: 'rixingsong', serif; }
   [data-font="creamfont"]  { --font-display: 'creamfont', serif;  --font-body: 'creamfont', serif; }
@@ -369,7 +373,43 @@
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--khaki); }
 
   .detail-photo-strip { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; }
-  .detail-photo-strip img { height: 200px; width: auto; border-radius: var(--radius); flex-shrink: 0; }
+  .detail-photo-strip img { height: 200px; width: auto; border-radius: var(--radius); flex-shrink: 0; cursor: zoom-in; }
+
+  /* 圖片放大檢視器 */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(20,18,16,0.94); z-index: 2000;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    touch-action: pan-y;
+  }
+  .lightbox-img-wrap {
+    flex: 1; width: 100%; display: flex; align-items: center; justify-content: center;
+    padding: 20px; overflow: hidden;
+  }
+  .lightbox-img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    border-radius: 2px; user-select: none; -webkit-user-drag: none;
+  }
+  .lightbox-counter {
+    padding: 14px 0 24px; color: rgba(255,255,255,0.75); font-size: 13px;
+    letter-spacing: 0.05em; font-family: var(--font-body);
+  }
+  .lightbox-close {
+    position: absolute; top: 16px; right: 16px; width: 40px; height: 40px;
+    border-radius: 50%; border: none; background: rgba(255,255,255,0.12);
+    color: #fff; font-size: 20px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; z-index: 2001;
+  }
+  .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+  .lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 44px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.12); color: #fff; font-size: 22px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .lightbox-nav:hover { background: rgba(255,255,255,0.2); }
+  .lightbox-nav.prev { left: 12px; }
+  .lightbox-nav.next { right: 12px; }
+  .lightbox-nav:disabled { opacity: 0.25; cursor: default; }
   .detail-meta-line { font-size: calc(13px * var(--fs)); color: var(--ink-soft); margin-bottom: 4px; }
   .detail-note { font-size: calc(14px * var(--fs)); line-height: 1.8; margin-top: 14px; white-space: pre-wrap; }
   .detail-tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
@@ -1342,17 +1382,76 @@ function StampFormModal({ categories, mediumTags, events, editingStamp, prefill,
   );
 }
 
+function Lightbox({ photos, startIndex, onClose }) {
+  const [index, setIndex] = useState(startIndex || 0);
+  const touchStartX = useRef(null);
+
+  const goPrev = () => setIndex((i) => Math.max(0, i - 1));
+  const goNext = () => setIndex((i) => Math.min(photos.length - 1, i + 1));
+
+  // 鍵盤操作（桌機用）
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.key === 'Escape') onClose();
+      else if (ev.key === 'ArrowLeft') goPrev();
+      else if (ev.key === 'ArrowRight') goNext();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [photos.length, onClose]);
+
+  const handleTouchStart = (ev) => { touchStartX.current = ev.touches[0].clientX; };
+  const handleTouchEnd = (ev) => {
+    if (touchStartX.current == null) return;
+    const dx = ev.changedTouches[0].clientX - touchStartX.current;
+    // 滑動超過 50px 才觸發切換，避免誤觸
+    if (dx > 50) goPrev();
+    else if (dx < -50) goNext();
+    touchStartX.current = null;
+  };
+
+  return e('div', {
+    className: 'lightbox',
+    onClick: (ev) => { if (ev.target === ev.currentTarget) onClose(); },
+    onTouchStart: handleTouchStart,
+    onTouchEnd: handleTouchEnd
+  },
+    e('button', { className: 'lightbox-close', onClick: onClose }, e('i', { className: 'ph ph-x' })),
+    photos.length > 1 && e('button', {
+      className: 'lightbox-nav prev', onClick: goPrev, disabled: index === 0
+    }, '‹'),
+    photos.length > 1 && e('button', {
+      className: 'lightbox-nav next', onClick: goNext, disabled: index === photos.length - 1
+    }, '›'),
+    e('div', {
+      className: 'lightbox-img-wrap',
+      onClick: (ev) => { if (ev.target === ev.currentTarget) onClose(); }
+    },
+      e('img', { className: 'lightbox-img', src: photos[index], alt: '' })
+    ),
+    e('div', { className: 'lightbox-counter' }, `第 ${index + 1} / ${photos.length} 張`)
+  );
+}
+
 function StampDetailModal({ stamp, categories, mediumTags, onClose, onEdit, onDelete }) {
   const tagNames = (stamp.categoryIds || []).map((id) => categories.find((c) => c.id === id)?.name).filter(Boolean);
   const mediumTagNames = (stamp.mediumTagIds || []).map((id) => mediumTags.find((t) => t.id === id)?.name).filter(Boolean);
   const title = displayName(stamp);
   const showLocationLine = stamp.location && stamp.location !== title;
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const photos = stamp.photos || [];
+
   return e('div', { className: 'modal-overlay', onClick: (ev) => { if (ev.target === ev.currentTarget) onClose(); } },
     e('div', { className: 'modal-box' },
       e('h3', { className: 'modal-title' }, title),
       showLocationLine && e('div', { className: 'detail-meta-line' }, '地點：', stamp.location),
       e('div', { className: 'detail-meta-line' }, '日期：', formatDate(stamp.date)),
-      stamp.photos && stamp.photos.length > 0 && e('div', { className: 'detail-photo-strip' }, stamp.photos.map((p, idx) => e('img', { key: idx, src: p }))),
+      photos.length > 0 && e('div', { className: 'detail-photo-strip' },
+        photos.map((p, idx) => e('img', {
+          key: idx, src: p,
+          onClick: () => setLightboxIndex(idx)
+        }))
+      ),
       stamp.note && e('div', { className: 'detail-note' }, stamp.note),
       (tagNames.length > 0 || mediumTagNames.length > 0) && e('div', { className: 'detail-tags-row' },
         tagNames.map((name, i) => e('span', { key: 'c' + i, className: 'stamp-tag-mini' }, name)),
@@ -1363,7 +1462,11 @@ function StampDetailModal({ stamp, categories, mediumTags, onClose, onEdit, onDe
         e('button', { className: 'btn', onClick: () => onEdit(stamp) }, '編輯'),
         e('button', { className: 'btn btn-primary', onClick: onClose }, '關閉')
       )
-    )
+    ),
+    lightboxIndex !== null && e(Lightbox, {
+      photos, startIndex: lightboxIndex,
+      onClose: () => setLightboxIndex(null)
+    })
   );
 }
 
