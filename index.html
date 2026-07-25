@@ -1875,18 +1875,28 @@ function mrtNormalize(s) {
   return (s || '').replace(/捷運|地鐵|MRT/gi, '').replace(/站$/, '').trim();
 }
 
+// 判斷某章的 categoryIds 是否屬於名稱包含「大眾運輸」的分類（含其子分類）
+function isPublicTransitStamp(stamp, categories) {
+  const root = (categories || []).find((c) => c.name && c.name.includes('大眾運輸'));
+  if (!root) return false;
+  const ids = getDescendantIds(categories, root.id);
+  return (stamp.categoryIds || []).some((cid) => ids.has(cid));
+}
+
 // 找出跟這個捷運站「地點」文字相符的蓋章紀錄（用簡單的字串包含比對，
 // 非嚴格比對，如果同名字首的站點誤判，可調整蓋章紀錄中的地點文字來修正）
-function findMrtMatches(stationName, stamps) {
+// 只會在「大眾運輸」分類（含子分類）底下的紀錄中比對
+function findMrtMatches(stationName, stamps, categories) {
   const target = mrtNormalize(stationName);
   if (!target) return [];
-  return stamps.filter((s) => {
+  const transitStamps = stamps.filter((s) => isPublicTransitStamp(s, categories));
+  return transitStamps.filter((s) => {
     const loc = mrtNormalize(s.location || '');
     return loc && loc.includes(target);
   });
 }
 
-function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
+function MrtMapView({ stamps, categories, onSelectStamp, onAddStation }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
 
@@ -1919,7 +1929,7 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
     });
 
     MRT_STATIONS.forEach((station) => {
-      const matches = findMrtMatches(station.name, stamps);
+      const matches = findMrtMatches(station.name, stamps, categories);
       const collected = matches.length > 0;
 
       const marker = L.circleMarker([station.lat, station.lng], {
@@ -1982,11 +1992,11 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       map.off('zoomend', updateLabelVisibility);
       layers.forEach((l) => l.remove());
     };
-  }, [stamps]);
+  }, [stamps, categories]);
 
   const collectedCount = useMemo(
-    () => MRT_STATIONS.filter((st) => findMrtMatches(st.name, stamps).length > 0).length,
-    [stamps]
+    () => MRT_STATIONS.filter((st) => findMrtMatches(st.name, stamps, categories).length > 0).length,
+    [stamps, categories]
   );
 
   return e('div', null,
@@ -1997,7 +2007,7 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       e('span', { className: 'mrt-legend-dot' }, e('span', { className: 'mrt-legend-swatch', style: { border: '1.5px solid #8A99A8', background: '#fff' } }), '未蓋章')
     ),
     e('div', { style: { marginTop: 8, fontSize: 11.5, color: 'var(--ink-soft)' } },
-      '放大地圖到一定程度會顯示站名標籤。細線顏色代表各捷運路線（比照官方配色）。比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
+      '只有分類勾選「大眾運輸」（含子分類）的蓋章紀錄，才會拿來跟捷運站比對。放大地圖到一定程度會顯示站名標籤。細線顏色代表各捷運路線（比照官方配色）。比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
     )
   );
 }
@@ -2248,7 +2258,8 @@ function App() {
   };
 
   const handleAddStationStamp = (stationName) => {
-    setStampPrefill({ stampName: '', location: stationName, categoryIds: [], photos: [] });
+    const transitCat = categories.find((c) => c.name && c.name.includes('大眾運輸'));
+    setStampPrefill({ stampName: '', location: stationName, categoryIds: transitCat ? [transitCat.id] : [], photos: [] });
     setEditingStamp(null);
     setShowForm(true);
   };
@@ -2485,7 +2496,7 @@ function App() {
     !loading && view === 'map' && mapSubView === 'all' && e(MapView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
 
     !loading && view === 'map' && mapSubView === 'mrt' && e(MrtMapView, {
-      stamps: visibleStamps, onSelectStamp: setDetailStamp, onAddStation: handleAddStationStamp
+      stamps: visibleStamps, categories, onSelectStamp: setDetailStamp, onAddStation: handleAddStationStamp
     }),
 
     !loading && view === 'wishlist' && (
