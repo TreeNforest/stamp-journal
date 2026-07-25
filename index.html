@@ -42,6 +42,8 @@
     --vermil-soft: #D8B3A4;
     --khaki: #D9D2C3;
     --paper: #FAF8F4;
+    --gold: #C9A227;
+    --gold-soft: #E4CD8A;
 
     --font-display: 'Noto Serif TC', serif;
     --font-body: 'LXGW WenKai TC', serif;
@@ -468,6 +470,12 @@
   .map-popup-list-item:first-of-type { border-top: none; }
   .map-popup-list-item:hover { color: var(--vermil); }
   .map-popup-list-item .map-popup-date { display: block; }
+
+  .mrt-legend-row { margin-top: 14px; display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; }
+  .mrt-legend-dot { display: inline-flex; align-items: center; gap: 5px; }
+  .mrt-legend-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .mrt-popup-status { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
+  .mrt-popup-addbtn { margin-top: 8px; width: 100%; }
 
   .fab {
     position: fixed; bottom: 28px; right: 28px; width: 54px; height: 54px; border-radius: 50%;
@@ -1685,6 +1693,237 @@ function CalendarView({ stamps, onSelectStamp }) {
   );
 }
 
+// ============================================================
+// 台北捷運車站資料（手動整理，經緯度為概略座標，僅供地圖標示用途，
+// 非精確定位；若發現特定站點座標偏移，可直接修改下方對應數值）
+// ============================================================
+const MRT_STATIONS = [
+  // 淡水信義線
+  { name: '淡水', lat: 25.1700, lng: 121.4406 },
+  { name: '紅樹林', lat: 25.1583, lng: 121.4571 },
+  { name: '竹圍', lat: 25.1417, lng: 121.4586 },
+  { name: '關渡', lat: 25.1274, lng: 121.4669 },
+  { name: '忠義', lat: 25.1196, lng: 121.4636 },
+  { name: '復興崗', lat: 25.1257, lng: 121.4735 },
+  { name: '北投', lat: 25.1321, lng: 121.4985 },
+  { name: '奇岩', lat: 25.1257, lng: 121.4988 },
+  { name: '唭哩岸', lat: 25.1177, lng: 121.5013 },
+  { name: '石牌', lat: 25.1105, lng: 121.5133 },
+  { name: '明德', lat: 25.1053, lng: 121.5182 },
+  { name: '芝山', lat: 25.1017, lng: 121.5237 },
+  { name: '士林', lat: 25.0913, lng: 121.5262 },
+  { name: '劍潭', lat: 25.0837, lng: 121.5252 },
+  { name: '圓山', lat: 25.0713, lng: 121.5203 },
+  { name: '大安森林公園', lat: 25.0333, lng: 121.5350 },
+  { name: '大安', lat: 25.0330, lng: 121.5434 },
+  { name: '信義安和', lat: 25.0332, lng: 121.5544 },
+  { name: '台北101/世貿', lat: 25.0339, lng: 121.5645 },
+  { name: '象山', lat: 25.0329, lng: 121.5703 },
+  // 共用轉乘站
+  { name: '民權西路', lat: 25.0632, lng: 121.5195 },
+  { name: '雙連', lat: 25.0575, lng: 121.5197 },
+  { name: '中山', lat: 25.0525, lng: 121.5203 },
+  { name: '台北車站', lat: 25.0478, lng: 121.5170 },
+  { name: '台大醫院', lat: 25.0420, lng: 121.5163 },
+  { name: '中正紀念堂', lat: 25.0345, lng: 121.5178 },
+  { name: '東門', lat: 25.0330, lng: 121.5245 },
+  // 板南線
+  { name: '頂埔', lat: 24.9578, lng: 121.4249 },
+  { name: '永寧', lat: 24.9678, lng: 121.4334 },
+  { name: '土城', lat: 24.9738, lng: 121.4434 },
+  { name: '海山', lat: 24.9868, lng: 121.4489 },
+  { name: '亞東醫院', lat: 24.9993, lng: 121.4498 },
+  { name: '府中', lat: 25.0106, lng: 121.4573 },
+  { name: '板橋', lat: 25.0138, lng: 121.4626 },
+  { name: '新埔', lat: 25.0187, lng: 121.4707 },
+  { name: '江子翠', lat: 25.0293, lng: 121.4735 },
+  { name: '龍山寺', lat: 25.0353, lng: 121.5001 },
+  { name: '西門', lat: 25.0421, lng: 121.5079 },
+  { name: '善導寺', lat: 25.0456, lng: 121.5227 },
+  { name: '忠孝新生', lat: 25.0420, lng: 121.5322 },
+  { name: '忠孝復興', lat: 25.0417, lng: 121.5434 },
+  { name: '忠孝敦化', lat: 25.0413, lng: 121.5533 },
+  { name: '國父紀念館', lat: 25.0409, lng: 121.5605 },
+  { name: '市政府', lat: 25.0409, lng: 121.5679 },
+  { name: '永春', lat: 25.0409, lng: 121.5763 },
+  { name: '後山埤', lat: 25.0403, lng: 121.5827 },
+  { name: '昆陽', lat: 25.0503, lng: 121.5849 },
+  { name: '南港', lat: 25.0538, lng: 121.6072 },
+  { name: '南港展覽館', lat: 25.0553, lng: 121.6167 },
+  // 文湖線
+  { name: '動物園', lat: 24.9985, lng: 121.5799 },
+  { name: '木柵', lat: 25.0034, lng: 121.5735 },
+  { name: '萬芳社區', lat: 25.0000, lng: 121.5688 },
+  { name: '萬芳醫院', lat: 24.9990, lng: 121.5610 },
+  { name: '辛亥', lat: 24.9998, lng: 121.5540 },
+  { name: '麟光', lat: 25.0128, lng: 121.5490 },
+  { name: '六張犁', lat: 25.0233, lng: 121.5510 },
+  { name: '科技大樓', lat: 25.0264, lng: 121.5434 },
+  { name: '南京復興', lat: 25.0517, lng: 121.5434 },
+  { name: '中山國中', lat: 25.0570, lng: 121.5434 },
+  { name: '松山機場', lat: 25.0637, lng: 121.5522 },
+  { name: '大直', lat: 25.0790, lng: 121.5473 },
+  { name: '劍南路', lat: 25.0847, lng: 121.5568 },
+  { name: '西湖', lat: 25.0827, lng: 121.5678 },
+  { name: '港墘', lat: 25.0803, lng: 121.5745 },
+  { name: '文德', lat: 25.0813, lng: 121.5825 },
+  { name: '內湖', lat: 25.0832, lng: 121.5910 },
+  { name: '大湖公園', lat: 25.0850, lng: 121.6005 },
+  { name: '葫洲', lat: 25.0793, lng: 121.6070 },
+  { name: '東湖', lat: 25.0703, lng: 121.6108 },
+  { name: '南港軟體園區', lat: 25.0555, lng: 121.6070 },
+  // 中和新蘆線
+  { name: '南勢角', lat: 24.9893, lng: 121.5085 },
+  { name: '景安', lat: 24.9968, lng: 121.5024 },
+  { name: '永安市場', lat: 25.0018, lng: 121.5060 },
+  { name: '頂溪', lat: 25.0093, lng: 121.5155 },
+  { name: '古亭', lat: 25.0263, lng: 121.5290 },
+  { name: '松江南京', lat: 25.0517, lng: 121.5322 },
+  { name: '行天宮', lat: 25.0603, lng: 121.5335 },
+  { name: '中山國小', lat: 25.0663, lng: 121.5303 },
+  { name: '大橋頭', lat: 25.0648, lng: 121.5087 },
+  { name: '台北橋', lat: 25.0673, lng: 121.5000 },
+  { name: '菜寮', lat: 25.0670, lng: 121.4903 },
+  { name: '三重', lat: 25.0620, lng: 121.4838 },
+  { name: '先嗇宮', lat: 25.0658, lng: 121.4780 },
+  { name: '頭前庄', lat: 25.0605, lng: 121.4610 },
+  { name: '新莊', lat: 25.0367, lng: 121.4325 },
+  { name: '輔大', lat: 25.0343, lng: 121.4243 },
+  { name: '丹鳳', lat: 25.0405, lng: 121.4197 },
+  { name: '迴龍', lat: 25.0437, lng: 121.4157 },
+  { name: '三民高中', lat: 25.0847, lng: 121.4767 },
+  { name: '蘆洲', lat: 25.0873, lng: 121.4735 },
+  // 松山新店線
+  { name: '松山', lat: 25.0500, lng: 121.5578 },
+  { name: '南京三民', lat: 25.0517, lng: 121.5501 },
+  { name: '台北小巨蛋', lat: 25.0517, lng: 121.5434 },
+  { name: '北門', lat: 25.0468, lng: 121.5115 },
+  { name: '台電大樓', lat: 25.0213, lng: 121.5290 },
+  { name: '公館', lat: 25.0148, lng: 121.5343 },
+  { name: '萬隆', lat: 25.0018, lng: 121.5343 },
+  { name: '景美', lat: 24.9903, lng: 121.5384 },
+  { name: '七張', lat: 24.9793, lng: 121.5427 },
+  { name: '新店區公所', lat: 24.9678, lng: 121.5388 },
+  { name: '新店', lat: 24.9578, lng: 121.5385 },
+  // 環狀線
+  { name: '大坪林', lat: 24.9825, lng: 121.5416 },
+  { name: '十四張', lat: 24.9855, lng: 121.5382 },
+  { name: '秀朗橋', lat: 24.9862, lng: 121.5310 },
+  { name: '景平', lat: 24.9895, lng: 121.5195 },
+  { name: '中和', lat: 24.9955, lng: 121.5158 },
+  { name: '橋和', lat: 25.0027, lng: 121.5090 },
+  { name: '中原', lat: 25.0060, lng: 121.4975 },
+  { name: '板新', lat: 25.0083, lng: 121.4842 },
+  { name: '新埔民生', lat: 25.0230, lng: 121.4635 },
+  { name: '幸福', lat: 25.0555, lng: 121.4530 },
+  { name: '新北產業園區', lat: 25.0618, lng: 121.4595 },
+];
+
+// 把站名 / 蓋章地點文字做簡單標準化，去除「站」「捷運」等字樣，方便比對
+function mrtNormalize(s) {
+  return (s || '').replace(/捷運|地鐵|MRT/gi, '').replace(/站$/, '').trim();
+}
+
+// 找出跟這個捷運站「地點」文字相符的蓋章紀錄（用簡單的字串包含比對，
+// 非嚴格比對，如果同名字首的站點誤判，可調整蓋章紀錄中的地點文字來修正）
+function findMrtMatches(stationName, stamps) {
+  const target = mrtNormalize(stationName);
+  if (!target) return [];
+  return stamps.filter((s) => {
+    const loc = mrtNormalize(s.location || '');
+    return loc && loc.includes(target);
+  });
+}
+
+function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapRef.current).setView([25.045, 121.535], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 19
+    }).addTo(map);
+    mapInstanceRef.current = map;
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const markers = [];
+
+    MRT_STATIONS.forEach((station) => {
+      const matches = findMrtMatches(station.name, stamps);
+      const collected = matches.length > 0;
+
+      const marker = L.circleMarker([station.lat, station.lng], {
+        radius: collected ? 7 : 6,
+        fillColor: collected ? '#C9A227' : '#ffffff',
+        fillOpacity: collected ? 0.95 : 0.15,
+        color: collected ? '#A8871E' : '#8A99A8',
+        weight: collected ? 2 : 1.5,
+        opacity: collected ? 1 : 0.65
+      }).addTo(map);
+
+      const popupEl = document.createElement('div');
+      const titleEl = document.createElement('div');
+      titleEl.className = 'map-popup-title';
+      titleEl.textContent = station.name;
+      popupEl.appendChild(titleEl);
+
+      const statusEl = document.createElement('div');
+      statusEl.className = 'mrt-popup-status';
+      statusEl.textContent = collected
+        ? (matches.length > 1 ? `已蓋章 · ${matches.length} 筆紀錄` : '已蓋章')
+        : '尚未蓋章';
+      popupEl.appendChild(statusEl);
+
+      if (collected && matches.length === 1) {
+        popupEl.classList.add('map-popup-clickable');
+        popupEl.addEventListener('click', () => { map.closePopup(); if (onSelectStamp) onSelectStamp(matches[0]); });
+      } else if (collected && matches.length > 1) {
+        matches.forEach((s) => {
+          const item = document.createElement('div');
+          item.className = 'map-popup-list-item';
+          item.innerHTML = `<span class="map-popup-title">${displayName(s)}</span><span class="map-popup-date">${formatDate(s.date)}</span>`;
+          item.addEventListener('click', () => { map.closePopup(); if (onSelectStamp) onSelectStamp(s); });
+          popupEl.appendChild(item);
+        });
+      } else {
+        const addBtn = document.createElement('button');
+        addBtn.className = 'btn btn-primary btn-sm mrt-popup-addbtn';
+        addBtn.textContent = '+ 新增這站的蓋章紀錄';
+        addBtn.addEventListener('click', () => { map.closePopup(); if (onAddStation) onAddStation(station.name); });
+        popupEl.appendChild(addBtn);
+      }
+
+      marker.bindPopup(popupEl);
+      markers.push(marker);
+    });
+
+    return () => markers.forEach((m) => m.remove());
+  }, [stamps]);
+
+  const collectedCount = useMemo(
+    () => MRT_STATIONS.filter((st) => findMrtMatches(st.name, stamps).length > 0).length,
+    [stamps]
+  );
+
+  return e('div', null,
+    e('div', { className: 'map-container', ref: mapRef }),
+    e('div', { className: 'mrt-legend-row' },
+      e('span', null, `已蓋 ${collectedCount} / ${MRT_STATIONS.length} 站`),
+      e('span', { className: 'mrt-legend-dot' }, e('span', { className: 'mrt-legend-swatch', style: { background: '#C9A227' } }), '已蓋章'),
+      e('span', { className: 'mrt-legend-dot' }, e('span', { className: 'mrt-legend-swatch', style: { border: '1.5px solid #8A99A8', background: '#fff' } }), '未蓋章')
+    ),
+    e('div', { style: { marginTop: 8, fontSize: 11.5, color: 'var(--ink-soft)' } },
+      '比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
+    )
+  );
+}
+
 function MapView({ stamps, onSelectStamp }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -1774,6 +2013,7 @@ function MapView({ stamps, onSelectStamp }) {
 function App() {
   const [view, setView] = useState('journal');
   const [journalSubView, setJournalSubView] = useState('list'); // 'list' | 'calendar'
+  const [mapSubView, setMapSubView] = useState('all'); // 'all' | 'mrt'
   const [listLayout, setListLayout] = useState('grid'); // 'grid' | 'compact'
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('stamp-journal-theme') || 'light'; }
@@ -1927,6 +2167,12 @@ function App() {
     if (!confirm(`確定刪除待蓋項目「${displayName(item)}」嗎？`)) return;
     try { await deleteDoc(doc(db, 'wishlist', item.id)); }
     catch (err) { console.error(err); alert('刪除失敗'); }
+  };
+
+  const handleAddStationStamp = (stationName) => {
+    setStampPrefill({ stampName: '', location: stationName, categoryIds: [], photos: [] });
+    setEditingStamp(null);
+    setShowForm(true);
   };
 
   const handleMarkAsStamped = (item) => {
@@ -2095,6 +2341,13 @@ function App() {
       )
     ),
 
+    view === 'map' && e('div', { className: 'sub-tabs-row' },
+      e('div', { className: 'sub-tabs' },
+        e('button', { className: 'sub-tab' + (mapSubView === 'all' ? ' active' : ''), onClick: () => setMapSubView('all') }, '全部地點'),
+        e('button', { className: 'sub-tab' + (mapSubView === 'mrt' ? ' active' : ''), onClick: () => setMapSubView('mrt') }, '捷運地圖')
+      )
+    ),
+
     loading && e('div', { className: 'loading-text' }, '載入中…'),
 
     !loading && view === 'journal' && journalSubView === 'list' && (
@@ -2151,7 +2404,11 @@ function App() {
 
     !loading && view === 'journal' && journalSubView === 'calendar' && e(CalendarView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
 
-    !loading && view === 'map' && e(MapView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
+    !loading && view === 'map' && mapSubView === 'all' && e(MapView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
+
+    !loading && view === 'map' && mapSubView === 'mrt' && e(MrtMapView, {
+      stamps: visibleStamps, onSelectStamp: setDetailStamp, onAddStation: handleAddStationStamp
+    }),
 
     !loading && view === 'wishlist' && (
       wishlist.length === 0
