@@ -1819,6 +1819,39 @@ const MRT_STATIONS = [
   { name: '新北產業園區', lat: 25.0618, lng: 121.4595 },
 ];
 
+// 各路線的官方顏色與站序（依實際地理順序排列，用來畫路線細線）
+const MRT_LINES = [
+  {
+    id: 'R', name: '淡水信義線', color: '#e3002c',
+    stations: ['淡水','紅樹林','竹圍','關渡','忠義','復興崗','北投','奇岩','唭哩岸','石牌','明德','芝山','士林','劍潭','圓山','民權西路','雙連','中山','台北車站','台大醫院','中正紀念堂','東門','大安森林公園','大安','信義安和','台北101/世貿','象山']
+  },
+  {
+    id: 'G', name: '松山新店線', color: '#008659',
+    stations: ['松山','南京三民','台北小巨蛋','中山國中','松江南京','北門','台北車站','中正紀念堂','古亭','台電大樓','公館','萬隆','景美','大坪林','七張','新店區公所','新店']
+  },
+  {
+    id: 'O', name: '中和新蘆線', color: '#f8b61c',
+    stations: ['南勢角','景安','永安市場','頂溪','古亭','東門','忠孝新生','松江南京','行天宮','中山國小','民權西路','大橋頭','台北橋','菜寮','三重','先嗇宮','頭前庄','新莊','輔大','丹鳳','迴龍']
+  },
+  {
+    id: 'O2', name: '中和新蘆線(蘆洲支線)', color: '#f8b61c',
+    stations: ['大橋頭','三民高中','蘆洲']
+  },
+  {
+    id: 'BL', name: '板南線', color: '#0070bd',
+    stations: ['頂埔','永寧','土城','海山','亞東醫院','府中','板橋','新埔','江子翠','龍山寺','西門','台北車站','善導寺','忠孝新生','忠孝復興','忠孝敦化','國父紀念館','市政府','永春','後山埤','昆陽','南港','南港展覽館']
+  },
+  {
+    id: 'BR', name: '文湖線', color: '#c48c31',
+    stations: ['動物園','木柵','萬芳社區','萬芳醫院','辛亥','麟光','六張犁','科技大樓','大安','忠孝復興','南京復興','中山國中','松山機場','大直','劍南路','西湖','港墘','文德','內湖','大湖公園','葫洲','東湖','南港軟體園區','南港展覽館']
+  },
+  {
+    id: 'Y', name: '環狀線', color: '#fedd00',
+    stations: ['大坪林','十四張','秀朗橋','景平','中和','橋和','中原','板新','板橋','新埔民生','頭前庄','幸福','新北產業園區']
+  },
+];
+
+
 // 把站名 / 蓋章地點文字做簡單標準化，去除「站」「捷運」等字樣，方便比對
 function mrtNormalize(s) {
   return (s || '').replace(/捷運|地鐵|MRT/gi, '').replace(/站$/, '').trim();
@@ -1852,7 +1885,21 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    const markers = [];
+    const layers = [];
+    const stationByName = new Map(MRT_STATIONS.map((st) => [st.name, st]));
+
+    // 先畫路線細線（在圓點下方）
+    MRT_LINES.forEach((line) => {
+      const coords = line.stations
+        .map((name) => stationByName.get(name))
+        .filter(Boolean)
+        .map((st) => [st.lat, st.lng]);
+      if (coords.length < 2) return;
+      const poly = L.polyline(coords, {
+        color: line.color, weight: 3.5, opacity: 0.65, interactive: false, lineJoin: 'round'
+      }).addTo(map);
+      layers.push(poly);
+    });
 
     MRT_STATIONS.forEach((station) => {
       const matches = findMrtMatches(station.name, stamps);
@@ -1861,10 +1908,10 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       const marker = L.circleMarker([station.lat, station.lng], {
         radius: collected ? 7 : 6,
         fillColor: collected ? '#C9A227' : '#ffffff',
-        fillOpacity: collected ? 0.95 : 0.15,
+        fillOpacity: collected ? 0.95 : 0.9,
         color: collected ? '#A8871E' : '#8A99A8',
         weight: collected ? 2 : 1.5,
-        opacity: collected ? 1 : 0.65
+        opacity: collected ? 1 : 0.8
       }).addTo(map);
 
       const popupEl = document.createElement('div');
@@ -1900,10 +1947,10 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       }
 
       marker.bindPopup(popupEl);
-      markers.push(marker);
+      layers.push(marker);
     });
 
-    return () => markers.forEach((m) => m.remove());
+    return () => layers.forEach((l) => l.remove());
   }, [stamps]);
 
   const collectedCount = useMemo(
@@ -1919,7 +1966,7 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       e('span', { className: 'mrt-legend-dot' }, e('span', { className: 'mrt-legend-swatch', style: { border: '1.5px solid #8A99A8', background: '#fff' } }), '未蓋章')
     ),
     e('div', { style: { marginTop: 8, fontSize: 11.5, color: 'var(--ink-soft)' } },
-      '比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
+      '細線顏色代表各捷運路線（比照官方配色）。比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
     )
   );
 }
