@@ -1904,6 +1904,8 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
     const map = mapInstanceRef.current;
     if (!map) return;
     const layers = [];
+    const stationMarkers = [];
+    const LABEL_ZOOM_THRESHOLD = 15;
 
     // 先畫路線細線（在圓點下方），使用真實路網幾何（而非站點直線連接）
     MRT_LINE_PATHS.forEach((line) => {
@@ -1966,9 +1968,20 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
         permanent: true, direction: 'top', offset: [0, -2], className: 'mrt-station-label', interactive: false
       });
       layers.push(marker);
+      stationMarkers.push(marker);
     });
 
-    return () => layers.forEach((l) => l.remove());
+    const updateLabelVisibility = () => {
+      const show = map.getZoom() >= LABEL_ZOOM_THRESHOLD;
+      stationMarkers.forEach((m) => { show ? m.openTooltip() : m.closeTooltip(); });
+    };
+    updateLabelVisibility();
+    map.on('zoomend', updateLabelVisibility);
+
+    return () => {
+      map.off('zoomend', updateLabelVisibility);
+      layers.forEach((l) => l.remove());
+    };
   }, [stamps]);
 
   const collectedCount = useMemo(
@@ -1984,7 +1997,7 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       e('span', { className: 'mrt-legend-dot' }, e('span', { className: 'mrt-legend-swatch', style: { border: '1.5px solid #8A99A8', background: '#fff' } }), '未蓋章')
     ),
     e('div', { style: { marginTop: 8, fontSize: 11.5, color: 'var(--ink-soft)' } },
-      '細線顏色代表各捷運路線（比照官方配色）。比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
+      '放大地圖到一定程度會顯示站名標籤。細線顏色代表各捷運路線（比照官方配色）。比對方式：蓋章紀錄的「地點」文字若包含該站名，即視為已蓋章。若有誤判，可到該筆紀錄編輯地點文字修正。'
     )
   );
 }
