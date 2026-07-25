@@ -476,6 +476,19 @@
   .mrt-legend-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .mrt-popup-status { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px; }
   .mrt-popup-addbtn { margin-top: 8px; width: 100%; }
+  .leaflet-tooltip.mrt-station-label {
+    background: rgba(250, 248, 244, 0.88);
+    border: none;
+    box-shadow: none;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ink);
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .leaflet-tooltip.mrt-station-label::before { display: none; }
 
   .fab {
     position: fixed; bottom: 28px; right: 28px; width: 54px; height: 54px; border-radius: 50%;
@@ -1788,9 +1801,9 @@ const MRT_STATIONS = [
   { name: '迴龍', lat: 25.02859, lng: 121.42138 },
   { name: '三民高中', lat: 25.08394, lng: 121.47507 },
   { name: '蘆洲', lat: 25.08624, lng: 121.47247 },
-  { name: '松山', lat: 25.05157, lng: 121.55784 },
-  { name: '南京三民', lat: 25.05172, lng: 121.55010 },
-  { name: '台北小巨蛋', lat: 25.05185, lng: 121.54340 },
+  { name: '松山', lat: 25.04930, lng: 121.57800 },
+  { name: '南京三民', lat: 25.05140, lng: 121.56390 },
+  { name: '台北小巨蛋', lat: 25.05170, lng: 121.55190 },
   { name: '北門', lat: 25.04717, lng: 121.50981 },
   { name: '台電大樓', lat: 25.02061, lng: 121.52823 },
   { name: '公館', lat: 25.01479, lng: 121.53429 },
@@ -1949,6 +1962,9 @@ function MrtMapView({ stamps, onSelectStamp, onAddStation }) {
       }
 
       marker.bindPopup(popupEl);
+      marker.bindTooltip(station.name, {
+        permanent: true, direction: 'top', offset: [0, -2], className: 'mrt-station-label', interactive: false
+      });
       layers.push(marker);
     });
 
