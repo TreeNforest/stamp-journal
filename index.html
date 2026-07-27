@@ -490,6 +490,8 @@
   }
   .leaflet-tooltip.mrt-station-label::before { display: none; }
   .mrt-line-toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .mrt-line-toggle-group { margin-bottom: 2px; }
+  .mrt-line-toggle-group-label { font-size: 11px; color: var(--ink-soft); margin-bottom: 4px; font-weight: 600; letter-spacing: 0.05em; }
   .mrt-line-toggle {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 12px; border-radius: 999px; border: 1px solid var(--khaki);
@@ -2215,20 +2217,42 @@ function MrtMapView({ stamps, categories, onSelectStamp, onAddStation }) {
     const LABEL_ZOOM_THRESHOLD = 15;
 
     // 先畫路線細線（在圓點下方），使用真實路網幾何（而非站點直線連接）
+    const drawRailStyle = (pts, color) => {
+      // 深色底線（枕木/路基感），再疊上淺色虛線區塊，做出鐵軌深淺相間的效果
+      const base = L.polyline(pts, {
+        color: '#4A3B2A', weight: 5, opacity: 0.55, interactive: false, lineJoin: 'round', lineCap: 'round'
+      }).addTo(map);
+      layers.push(base);
+      const overlay = L.polyline(pts, {
+        color: color, weight: 5, opacity: 0.95, interactive: false, lineJoin: 'round', lineCap: 'round',
+        dashArray: '9, 7'
+      }).addTo(map);
+      layers.push(overlay);
+    };
+
     MRT_LINE_PATHS.filter((line) => visibleLines.has(line.id)).forEach((line) => {
+      const isRail = line.id.startsWith('TRA');
       line.segments.forEach((seg) => {
         if (seg.length < 2) return;
-        const poly = L.polyline(seg, {
-          color: line.color, weight: 3.5, opacity: 0.75, interactive: false, lineJoin: 'round', lineCap: 'round'
-        }).addTo(map);
-        layers.push(poly);
+        if (isRail) {
+          drawRailStyle(seg, line.color);
+        } else {
+          const poly = L.polyline(seg, {
+            color: line.color, weight: 3.5, opacity: 0.75, interactive: false, lineJoin: 'round', lineCap: 'round'
+          }).addTo(map);
+          layers.push(poly);
+        }
       });
       (line.branches || []).forEach((br) => {
         if (br.pts.length < 2) return;
-        const poly = L.polyline(br.pts, {
-          color: br.color || line.color, weight: 3, opacity: 0.75, interactive: false, lineJoin: 'round', lineCap: 'round'
-        }).addTo(map);
-        layers.push(poly);
+        if (isRail) {
+          drawRailStyle(br.pts, br.color || line.color);
+        } else {
+          const poly = L.polyline(br.pts, {
+            color: br.color || line.color, weight: 3, opacity: 0.75, interactive: false, lineJoin: 'round', lineCap: 'round'
+          }).addTo(map);
+          layers.push(poly);
+        }
       });
     });
 
@@ -2319,23 +2343,47 @@ function MrtMapView({ stamps, categories, onSelectStamp, onAddStation }) {
   );
 
   return e('div', null,
-    e('div', { className: 'mrt-line-toggle-row' },
-      MRT_LINE_PATHS.map((line) => {
-        const active = visibleLines.has(line.id);
-        return e('button', {
-          key: line.id,
-          type: 'button',
-          className: 'mrt-line-toggle' + (active ? ' active' : ''),
-          style: active ? { background: line.color, borderColor: line.color } : {},
-          onClick: () => toggleLine(line.id)
-        },
-          e('span', {
-            className: 'mrt-line-toggle-swatch',
-            style: { background: active ? '#fff' : line.color }
-          }),
-          line.name
-        );
-      })
+    e('div', { className: 'mrt-line-toggle-group' },
+      e('div', { className: 'mrt-line-toggle-group-label' }, '捷運'),
+      e('div', { className: 'mrt-line-toggle-row' },
+        MRT_LINE_PATHS.filter((line) => !line.id.startsWith('TRA')).map((line) => {
+          const active = visibleLines.has(line.id);
+          return e('button', {
+            key: line.id,
+            type: 'button',
+            className: 'mrt-line-toggle' + (active ? ' active' : ''),
+            style: active ? { background: line.color, borderColor: line.color } : {},
+            onClick: () => toggleLine(line.id)
+          },
+            e('span', {
+              className: 'mrt-line-toggle-swatch',
+              style: { background: active ? '#fff' : line.color }
+            }),
+            line.name
+          );
+        })
+      )
+    ),
+    e('div', { className: 'mrt-line-toggle-group' },
+      e('div', { className: 'mrt-line-toggle-group-label' }, '台鐵'),
+      e('div', { className: 'mrt-line-toggle-row' },
+        MRT_LINE_PATHS.filter((line) => line.id.startsWith('TRA')).map((line) => {
+          const active = visibleLines.has(line.id);
+          return e('button', {
+            key: line.id,
+            type: 'button',
+            className: 'mrt-line-toggle' + (active ? ' active' : ''),
+            style: active ? { background: line.color, borderColor: line.color } : {},
+            onClick: () => toggleLine(line.id)
+          },
+            e('span', {
+              className: 'mrt-line-toggle-swatch',
+              style: { background: active ? '#fff' : line.color }
+            }),
+            line.name
+          );
+        })
+      )
     ),
     e('div', { className: 'map-container', ref: mapRef }),
     e('div', { className: 'mrt-legend-row' },
