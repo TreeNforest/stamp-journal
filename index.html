@@ -1988,20 +1988,29 @@ function MrtMapView({ stamps, categories, onSelectStamp, onAddStation }) {
       });
     });
 
+    const radiusForZoom = (zoom, collected) => {
+      if (zoom >= 16) return collected ? 7 : 6;
+      if (zoom >= 14) return collected ? 5.5 : 4.5;
+      if (zoom >= 12) return collected ? 4 : 3;
+      return collected ? 3 : 2;
+    };
+
     MRT_STATIONS
       .filter((station) => (station.lines || []).some((l) => visibleLines.has(l)))
       .forEach((station) => {
       const matches = findMrtMatches(station, stamps, categories);
       const collected = matches.length > 0;
+      const initialRadius = radiusForZoom(map.getZoom(), collected);
 
       const marker = L.circleMarker([station.lat, station.lng], {
-        radius: collected ? 7 : 6,
+        radius: initialRadius,
         fillColor: collected ? '#C9A227' : '#ffffff',
         fillOpacity: collected ? 0.95 : 0.9,
         color: collected ? '#A8871E' : '#8A99A8',
         weight: collected ? 2 : 1.5,
         opacity: collected ? 1 : 0.8
       }).addTo(map);
+      marker._mrtCollected = collected;
 
       const popupEl = document.createElement('div');
       const titleEl = document.createElement('div');
@@ -2044,8 +2053,12 @@ function MrtMapView({ stamps, categories, onSelectStamp, onAddStation }) {
     });
 
     const updateLabelVisibility = () => {
-      const show = map.getZoom() >= LABEL_ZOOM_THRESHOLD;
-      stationMarkers.forEach((m) => { show ? m.openTooltip() : m.closeTooltip(); });
+      const zoom = map.getZoom();
+      const show = zoom >= LABEL_ZOOM_THRESHOLD;
+      stationMarkers.forEach((m) => {
+        show ? m.openTooltip() : m.closeTooltip();
+        m.setRadius(radiusForZoom(zoom, m._mrtCollected));
+      });
     };
     updateLabelVisibility();
     map.on('zoomend', updateLabelVisibility);
