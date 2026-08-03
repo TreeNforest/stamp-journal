@@ -235,6 +235,7 @@
     background: none; border: none; cursor: pointer; color: var(--ink-soft); font-size: 18px; padding: 4px 10px;
   }
   .calendar-nav-btn:hover { color: var(--vermil); }
+  .calendar-nav-btn:disabled { color: var(--khaki); cursor: default; }
   .calendar-month-label { font-family: var(--font-display); font-weight: 600; font-size: 16px; min-width: 110px; text-align: center; }
 
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -471,8 +472,21 @@
   }
   .itinerary-item-body { flex: 1; min-width: 0; }
   .itinerary-item-title { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .itinerary-item-time { font-weight: 700; color: var(--vermil); font-size: 12.5px; }
   .itinerary-item-note { font-size: 12px; color: var(--ink-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .itinerary-no-location-hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
+  .album-empty-hint { font-size: 13px; color: var(--ink-soft); padding: 24px 4px; text-align: center; }
+  .album-picker-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .album-picker-btn {
+    padding: 6px 14px; border-radius: 999px; border: 1px solid var(--khaki); background: var(--paper);
+    font-size: 13px; color: var(--ink-soft); cursor: pointer; font-family: inherit;
+  }
+  .album-picker-btn.active { background: var(--vermil); border-color: var(--vermil); color: #fff; font-weight: 600; }
+  .album-page-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
+  .album-page-label { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--ink); min-width: 140px; text-align: center; }
+  .album-page-count { font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+  .album-page-grid { min-height: 120px; }
+  .album-card-other-pages { font-size: 11px; color: var(--vermil); margin-top: 4px; }
   .leaflet-popup-content-wrapper { border-radius: var(--radius); font-family: var(--font-body); }
   /* Leaflet 預設會把控制元件/動畫面板的 z-index 設到 400~1000,
      這裡明確收斂在 .map-container 範圍內,避免蓋住其上層的 modal。 */
@@ -748,13 +762,26 @@ function buildCalendarCells(year, month) {
 }
 
 // 把蓋章紀錄依日期(YYYY-MM-DD)分組,用於日曆標示與當日清單。
-// 依 createdAt 由早到晚排序,用來推測同一天蓋章的先後順序(建立紀錄的順序當作到訪順序)
+// 依到訪順序排序:優先用使用者填的「時間」欄位(有填的都排在前面,照時間排),
+// 沒填時間的紀錄則排在後面,彼此之間用 createdAt(建立時間)當作備援排序依據。
 function sortByVisitOrder(list) {
   return [...list].sort((a, b) => {
+    const aHasTime = !!a.time;
+    const bHasTime = !!b.time;
+    if (aHasTime && bHasTime) return a.time.localeCompare(b.time);
+    if (aHasTime !== bHasTime) return aHasTime ? -1 : 1;
     const at = (a.createdAt && a.createdAt.seconds) || 0;
     const bt = (b.createdAt && b.createdAt.seconds) || 0;
     return at - bt;
   });
+}
+
+// 取得某筆蓋章紀錄涵蓋的頁碼(陣列)。一個地點的章太多、一頁貼不下時,
+// 可以填多個頁碼(pageNumbers),這筆紀錄就會同時出現在那幾頁裡。
+function getStampPages(s) {
+  if (Array.isArray(s.pageNumbers) && s.pageNumbers.length > 0) return s.pageNumbers;
+  if (s.pageNumber != null) return [s.pageNumber];
+  return [];
 }
 
 function groupStampsByDate(stamps) {
@@ -1242,6 +1269,12 @@ function StampFormModal({ categories, mediumTags, events, editingStamp, prefill,
   const [stampName, setStampName] = useState(initial.stampName || '');
   const [location, setLocation] = useState(initial.location || '');
   const [date, setDate] = useState(initial.date || new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState(initial.time || '');
+  const [albumNumber, setAlbumNumber] = useState(initial.albumNumber != null ? String(initial.albumNumber) : '');
+  const [pagesInput, setPagesInput] = useState(
+    Array.isArray(initial.pageNumbers) && initial.pageNumbers.length ? initial.pageNumbers.join(', ')
+    : (initial.pageNumber != null ? String(initial.pageNumber) : '')
+  );
   const [note, setNote] = useState(initial.note || '');
   const [lat, setLat] = useState(initial.lat ?? null);
   const [lng, setLng] = useState(initial.lng ?? null);
@@ -1326,7 +1359,12 @@ function StampFormModal({ categories, mediumTags, events, editingStamp, prefill,
     try {
       const stampData = {
         stampName: stampName.trim(),
-        location: location.trim(), date, note: note.trim(),
+        location: location.trim(), date, time: time || null,
+        albumNumber: albumNumber.trim() ? Number(albumNumber) : null,
+        pageNumbers: pagesInput.trim()
+          ? [...new Set(pagesInput.split(/[,，、\s]+/).map((x) => parseInt(x, 10)).filter((n) => !isNaN(n)))].sort((a, b) => a - b)
+          : [],
+        note: note.trim(),
         lat: lat ?? null, lng: lng ?? null, photos, categoryIds, mediumTagIds, eventId: eventId || null, updatedAt: serverTimestamp()
       };
       if (isEdit) {
@@ -1384,7 +1422,36 @@ function StampFormModal({ categories, mediumTags, events, editingStamp, prefill,
 
       e('div', { className: 'field-group' },
         e('label', { className: 'field-label' }, '日期'),
-        e('input', { type: 'date', className: 'field-input', value: date, onChange: (ev) => setDate(ev.target.value) })
+        e('div', { style: { display: 'flex', gap: 8 } },
+          e('input', {
+            type: 'date', className: 'field-input', style: { flex: 1 },
+            value: date, onChange: (ev) => setDate(ev.target.value)
+          }),
+          e('input', {
+            type: 'time', className: 'field-input', style: { flex: '0 0 120px' },
+            value: time, onChange: (ev) => setTime(ev.target.value)
+          })
+        ),
+        e('div', { style: { fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 4 } },
+          '時間可不填，填了的話同一天多筆紀錄會照時間排序（用在「當天行程」列表與地圖路線）'
+        )
+      ),
+
+      e('div', { className: 'field-group' },
+        e('label', { className: 'field-label' }, '實體冊數 / 頁數（選填）'),
+        e('div', { style: { display: 'flex', gap: 8 } },
+          e('input', {
+            type: 'number', min: 1, className: 'field-input', style: { flex: '0 0 90px' },
+            placeholder: '第幾冊', value: albumNumber, onChange: (ev) => setAlbumNumber(ev.target.value)
+          }),
+          e('input', {
+            type: 'text', className: 'field-input', style: { flex: 1 },
+            placeholder: '頁碼，例如 4 或 1,3,5', value: pagesInput, onChange: (ev) => setPagesInput(ev.target.value)
+          })
+        ),
+        e('div', { style: { fontSize: 11.5, color: 'var(--ink-soft)', marginTop: 4 } },
+          '填了之後可以在「紀念冊 → 冊頁」依冊數、頁數瀏覽。如果同一個地點蓋的章太多、一頁貼不下、分散貼在好幾頁，頁碼可以用逗號隔開填多個（例如 1,3,5），這筆紀錄就會同時出現在那幾頁'
+        )
       ),
 
       e('div', { className: 'field-group' },
@@ -1514,7 +1581,7 @@ function StampDetailModal({ stamp, categories, mediumTags, onClose, onEdit, onDe
     e('div', { className: 'modal-box' },
       e('h3', { className: 'modal-title' }, title),
       showLocationLine && e('div', { className: 'detail-meta-line' }, '地點：', stamp.location),
-      e('div', { className: 'detail-meta-line' }, '日期：', formatDate(stamp.date)),
+      e('div', { className: 'detail-meta-line' }, '日期：', formatDate(stamp.date), stamp.time ? ` ${stamp.time}` : ''),
       photos.length > 0 && e('div', { className: 'detail-photo-strip' },
         photos.map((p, idx) => e('img', {
           key: idx, src: p,
@@ -1757,7 +1824,10 @@ function DayItinerary({ stamps, onSelectStamp }) {
             ? e('img', { className: 'itinerary-thumb', src: s.photos[0] })
             : e('div', { className: 'itinerary-thumb-placeholder' }, title[0] || '·'),
           e('div', { className: 'itinerary-item-body' },
-            e('div', { className: 'itinerary-item-title' }, title),
+            e('div', { className: 'itinerary-item-title' },
+              s.time && e('span', { className: 'itinerary-item-time' }, s.time + ' '),
+              title
+            ),
             s.note && e('div', { className: 'itinerary-item-note' }, s.note)
           )
         );
@@ -1836,6 +1906,95 @@ function CalendarView({ stamps, onSelectStamp }) {
             })
           )
         : e(DayItinerary, { stamps: selectedStamps, onSelectStamp })
+    )
+  );
+}
+
+// 依實體集章冊的「冊數、頁數」瀏覽蓋章紀錄,一次顯示一頁的縮圖網格。
+function AlbumView({ stamps, onSelectStamp }) {
+  const withAlbum = useMemo(() => stamps.filter((s) => s.albumNumber != null), [stamps]);
+  const withoutAlbumCount = stamps.length - withAlbum.length;
+
+  const albumNumbers = useMemo(
+    () => [...new Set(withAlbum.map((s) => s.albumNumber))].sort((a, b) => a - b),
+    [withAlbum]
+  );
+
+  const [selectedAlbum, setSelectedAlbum] = useState(null);
+  useEffect(() => {
+    if (albumNumbers.length > 0 && (selectedAlbum === null || !albumNumbers.includes(selectedAlbum))) {
+      setSelectedAlbum(albumNumbers[0]);
+    }
+  }, [albumNumbers]);
+
+  const albumStamps = useMemo(
+    () => withAlbum.filter((s) => s.albumNumber === selectedAlbum),
+    [withAlbum, selectedAlbum]
+  );
+
+  const pageNumbers = useMemo(() => {
+    const allPages = albumStamps.flatMap((s) => getStampPages(s));
+    const pages = [...new Set(allPages)].sort((a, b) => a - b);
+    const hasUnpaged = albumStamps.some((s) => getStampPages(s).length === 0);
+    return hasUnpaged ? [...pages, '未分頁'] : pages;
+  }, [albumStamps]);
+
+  const [selectedPage, setSelectedPage] = useState(null);
+  useEffect(() => {
+    if (pageNumbers.length > 0 && (selectedPage === null || !pageNumbers.includes(selectedPage))) {
+      setSelectedPage(pageNumbers[0]);
+    }
+  }, [pageNumbers]);
+
+  const pageStamps = useMemo(() => {
+    if (selectedPage === '未分頁') return albumStamps.filter((s) => getStampPages(s).length === 0);
+    return albumStamps.filter((s) => getStampPages(s).includes(selectedPage));
+  }, [albumStamps, selectedPage]);
+
+  if (albumNumbers.length === 0) {
+    return e('div', { className: 'album-empty-hint' },
+      '目前還沒有蓋章紀錄填寫「第幾冊、第幾頁」。編輯蓋章紀錄時可以補上，之後就會顯示在這裡。'
+    );
+  }
+
+  const pageIdx = pageNumbers.indexOf(selectedPage);
+  const goPrevPage = () => { if (pageIdx > 0) setSelectedPage(pageNumbers[pageIdx - 1]); };
+  const goNextPage = () => { if (pageIdx < pageNumbers.length - 1) setSelectedPage(pageNumbers[pageIdx + 1]); };
+
+  return e('div', { className: 'album-view' },
+    albumNumbers.length > 1 && e('div', { className: 'album-picker-row' },
+      albumNumbers.map((n) => e('button', {
+        key: n, className: 'album-picker-btn' + (n === selectedAlbum ? ' active' : ''),
+        onClick: () => setSelectedAlbum(n)
+      }, `第 ${n} 冊`))
+    ),
+    e('div', { className: 'album-page-nav' },
+      e('button', { className: 'calendar-nav-btn', onClick: goPrevPage, disabled: pageIdx <= 0 }, '‹'),
+      e('div', { className: 'album-page-label' },
+        selectedPage === '未分頁' ? '未分頁' : `第 ${selectedPage} 頁`,
+        e('span', { className: 'album-page-count' }, `（${pageIdx + 1} / ${pageNumbers.length}）`)
+      ),
+      e('button', { className: 'calendar-nav-btn', onClick: goNextPage, disabled: pageIdx >= pageNumbers.length - 1 }, '›')
+    ),
+    e('div', { className: 'stamp-grid album-page-grid' },
+      pageStamps.map((s) => {
+        const title = displayName(s);
+        const pages = getStampPages(s);
+        const otherPages = pages.filter((p) => p !== selectedPage);
+        return e('div', { key: s.id, className: 'stamp-card', onClick: () => onSelectStamp(s) },
+          s.photos && s.photos[0]
+            ? e('img', { className: 'stamp-photo', src: s.photos[0] })
+            : e('div', { className: 'stamp-photo-placeholder' }, title[0]),
+          e('div', { className: 'stamp-card-body' },
+            e('div', { className: 'stamp-location' }, title),
+            s.note && e('div', { className: 'stamp-note-preview' }, s.note),
+            otherPages.length > 0 && e('div', { className: 'album-card-other-pages' }, `同一筆也在第 ${otherPages.join('、')} 頁`)
+          )
+        );
+      })
+    ),
+    withoutAlbumCount > 0 && e('div', { className: 'itinerary-no-location-hint' },
+      `另外有 ${withoutAlbumCount} 筆紀錄還沒填冊數，沒有顯示在這裡。`
     )
   );
 }
@@ -2924,7 +3083,8 @@ function App() {
     view === 'journal' && e('div', { className: 'sub-tabs-row' },
       e('div', { className: 'sub-tabs' },
         e('button', { className: 'sub-tab' + (journalSubView === 'list' ? ' active' : ''), onClick: () => setJournalSubView('list') }, '列表'),
-        e('button', { className: 'sub-tab' + (journalSubView === 'calendar' ? ' active' : ''), onClick: () => setJournalSubView('calendar') }, '日曆')
+        e('button', { className: 'sub-tab' + (journalSubView === 'calendar' ? ' active' : ''), onClick: () => setJournalSubView('calendar') }, '日曆'),
+        e('button', { className: 'sub-tab' + (journalSubView === 'album' ? ' active' : ''), onClick: () => setJournalSubView('album') }, '冊頁')
       ),
       journalSubView === 'list' && e('div', { className: 'layout-toggle' },
         e('button', {
@@ -3000,6 +3160,8 @@ function App() {
     ),
 
     !loading && view === 'journal' && journalSubView === 'calendar' && e(CalendarView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
+
+    !loading && view === 'journal' && journalSubView === 'album' && e(AlbumView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
 
     !loading && view === 'map' && mapSubView === 'all' && e(MapView, { stamps: visibleStamps, onSelectStamp: setDetailStamp }),
 
