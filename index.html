@@ -242,7 +242,7 @@
   .calendar-day-cell {
     aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
     border-radius: var(--radius); cursor: pointer; font-size: 14px; color: var(--ink);
-    transition: background 0.12s ease;
+    transition: background 0.12s ease; position: relative;
   }
   .calendar-day-cell:hover { background: var(--bg); }
   .calendar-day-cell.empty { cursor: default; }
@@ -251,6 +251,10 @@
   .calendar-day-cell.is-today { background: var(--vermil); color: #fff; font-weight: 700; }
   .calendar-day-cell.is-today:hover { background: var(--vermil); }
   .calendar-day-cell.is-selected:not(.is-today) { border: 1.5px solid var(--vermil); }
+  .calendar-day-multi-dot {
+    position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: currentColor;
+  }
 
   .calendar-day-detail { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--khaki); }
   .calendar-day-detail-title { font-family: var(--font-display); font-weight: 600; font-size: 14px; color: var(--vermil); margin-bottom: 10px; }
@@ -445,6 +449,30 @@
   .medium-tag-row:hover .medium-tag-row-actions { opacity: 1; }
 
   .map-container { height: 560px; border-radius: var(--radius); border: 1px solid var(--khaki); overflow: hidden; position: relative; z-index: 1; }
+  .map-container.itinerary-map { height: 240px; margin-bottom: 14px; }
+  .itinerary-marker-badge {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--vermil); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
+    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  }
+  .itinerary-list { display: flex; flex-direction: column; gap: 0; }
+  .itinerary-list-item { display: flex; gap: 12px; padding: 10px 0; position: relative; cursor: pointer; }
+  .itinerary-list-item:not(:last-child)::after {
+    content: ''; position: absolute; left: 13px; top: 38px; bottom: -4px; width: 1.5px; background: var(--khaki);
+  }
+  .itinerary-number {
+    flex-shrink: 0; width: 27px; height: 27px; border-radius: 50%; background: var(--vermil); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; z-index: 1;
+  }
+  .itinerary-thumb { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--khaki); flex-shrink: 0; }
+  .itinerary-thumb-placeholder {
+    width: 48px; height: 48px; border-radius: 8px; background: var(--khaki); color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+  .itinerary-item-body { flex: 1; min-width: 0; }
+  .itinerary-item-title { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+  .itinerary-item-note { font-size: 12px; color: var(--ink-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .itinerary-no-location-hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
   .leaflet-popup-content-wrapper { border-radius: var(--radius); font-family: var(--font-body); }
   /* Leaflet 預設會把控制元件/動畫面板的 z-index 設到 400~1000,
      這裡明確收斂在 .map-container 範圍內,避免蓋住其上層的 modal。 */
@@ -720,6 +748,15 @@ function buildCalendarCells(year, month) {
 }
 
 // 把蓋章紀錄依日期(YYYY-MM-DD)分組,用於日曆標示與當日清單。
+// 依 createdAt 由早到晚排序,用來推測同一天蓋章的先後順序(建立紀錄的順序當作到訪順序)
+function sortByVisitOrder(list) {
+  return [...list].sort((a, b) => {
+    const at = (a.createdAt && a.createdAt.seconds) || 0;
+    const bt = (b.createdAt && b.createdAt.seconds) || 0;
+    return at - bt;
+  });
+}
+
 function groupStampsByDate(stamps) {
   const map = {};
   stamps.forEach((s) => {
@@ -1650,6 +1687,88 @@ function EventsView({ events, stamps, categories, onEditEvent, onDeleteEvent, on
   );
 }
 
+// 當天行程地圖:把有座標的蓋章紀錄依到訪順序畫上數字徽章與連接路線
+function DayItineraryMap({ stops }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapRef.current).setView([25.04, 121.56], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+      subdomains: 'abcd', maxZoom: 19
+    }).addTo(map);
+    mapInstanceRef.current = map;
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const layers = [];
+
+    if (stops.length >= 2) {
+      const line = L.polyline(stops.map((s) => [s.lat, s.lng]), {
+        color: '#B7705A', weight: 3, opacity: 0.8, dashArray: '6, 6'
+      }).addTo(map);
+      layers.push(line);
+    }
+
+    stops.forEach((s) => {
+      const icon = L.divIcon({
+        html: `<div class="itinerary-marker-badge">${s.__order}</div>`,
+        className: '', iconSize: [22, 22], iconAnchor: [11, 11]
+      });
+      const marker = L.marker([s.lat, s.lng], { icon }).addTo(map);
+      marker.bindPopup(displayName(s) || `第 ${s.__order} 站`);
+      layers.push(marker);
+    });
+
+    if (stops.length > 0) {
+      const bounds = L.latLngBounds(stops.map((s) => [s.lat, s.lng]));
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 16 });
+    }
+
+    return () => layers.forEach((l) => l.remove());
+  }, [stops]);
+
+  return e('div', { className: 'map-container itinerary-map', ref: mapRef });
+}
+
+// 當天行程:把同一天的蓋章紀錄依建立時間排出先後順序,上面地圖路線、下面時間軸列表。
+function DayItinerary({ stamps, onSelectStamp }) {
+  const ordered = useMemo(() => sortByVisitOrder(stamps), [stamps]);
+  const stopsWithLocation = useMemo(
+    () => ordered
+      .map((s, idx) => ({ ...s, __order: idx + 1 }))
+      .filter((s) => typeof s.lat === 'number' && typeof s.lng === 'number'),
+    [ordered]
+  );
+  const missingCount = ordered.length - stopsWithLocation.length;
+
+  return e('div', null,
+    stopsWithLocation.length > 0 && e(DayItineraryMap, { stops: stopsWithLocation }),
+    e('div', { className: 'itinerary-list' },
+      ordered.map((s, idx) => {
+        const title = displayName(s);
+        return e('div', { key: s.id, className: 'itinerary-list-item', onClick: () => onSelectStamp(s) },
+          e('div', { className: 'itinerary-number' }, idx + 1),
+          s.photos && s.photos[0]
+            ? e('img', { className: 'itinerary-thumb', src: s.photos[0] })
+            : e('div', { className: 'itinerary-thumb-placeholder' }, title[0] || '·'),
+          e('div', { className: 'itinerary-item-body' },
+            e('div', { className: 'itinerary-item-title' }, title),
+            s.note && e('div', { className: 'itinerary-item-note' }, s.note)
+          )
+        );
+      })
+    ),
+    missingCount > 0 && e('div', { className: 'itinerary-no-location-hint' },
+      `有 ${missingCount} 筆紀錄沒有地點座標，沒辦法畫進地圖路線，但列表中還是看得到。`
+    )
+  );
+}
+
 function CalendarView({ stamps, onSelectStamp }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -1682,7 +1801,9 @@ function CalendarView({ stamps, onSelectStamp }) {
       cells.map((d, idx) => {
         if (!d) return e('div', { key: idx, className: 'calendar-day-cell empty' });
         const dateKey = toDateKey(d);
-        const hasStamp = !!stampsByDate[dateKey];
+        const dayStamps = stampsByDate[dateKey];
+        const hasStamp = !!dayStamps;
+        const isMulti = hasStamp && dayStamps.length > 1;
         const isToday = dateKey === todayKey;
         const isSelected = dateKey === selectedDate;
         const cls = ['calendar-day-cell'];
@@ -1692,14 +1813,15 @@ function CalendarView({ stamps, onSelectStamp }) {
         return e('div', {
           key: idx, className: cls.join(' '),
           onClick: () => setSelectedDate(dateKey)
-        }, d.getDate());
+        }, d.getDate(), isMulti && e('span', { className: 'calendar-day-multi-dot' }));
       })
     ),
     e('div', { className: 'calendar-day-detail' },
       e('div', { className: 'calendar-day-detail-title' }, `${selectedDate} 的蓋章紀錄（${selectedStamps.length} 枚）`),
       selectedStamps.length === 0
         ? e('div', { className: 'calendar-day-detail-empty' }, '這天沒有蓋章紀錄')
-        : e('div', { className: 'stamp-grid' },
+        : selectedStamps.length === 1
+        ? e('div', { className: 'stamp-grid' },
             selectedStamps.map((s) => {
               const title = displayName(s);
               return e('div', { key: s.id, className: 'stamp-card', onClick: () => onSelectStamp(s) },
@@ -1713,6 +1835,7 @@ function CalendarView({ stamps, onSelectStamp }) {
               );
             })
           )
+        : e(DayItinerary, { stamps: selectedStamps, onSelectStamp })
     )
   );
 }
