@@ -484,6 +484,11 @@
   .album-picker-btn.active { background: var(--vermil); border-color: var(--vermil); color: #fff; font-weight: 600; }
   .album-page-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 16px; }
   .album-page-label { font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--ink); min-width: 140px; text-align: center; }
+  .album-page-select {
+    font-family: var(--font-display); font-weight: 600; font-size: 15px; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--khaki); border-radius: var(--radius);
+    padding: 6px 10px; min-width: 110px; text-align: center; text-align-last: center;
+  }
   .album-page-count { font-weight: 400; font-size: 12px; color: var(--ink-soft); }
   .album-page-grid { min-height: 120px; }
   .album-card-other-pages { font-size: 11px; color: var(--vermil); margin-top: 4px; }
@@ -1970,10 +1975,19 @@ function AlbumView({ stamps, onSelectStamp }) {
     ),
     e('div', { className: 'album-page-nav' },
       e('button', { className: 'calendar-nav-btn', onClick: goPrevPage, disabled: pageIdx <= 0 }, '‹'),
-      e('div', { className: 'album-page-label' },
-        selectedPage === '未分頁' ? '未分頁' : `第 ${selectedPage} 頁`,
-        e('span', { className: 'album-page-count' }, `（${pageIdx + 1} / ${pageNumbers.length}）`)
+      e('select', {
+        className: 'album-page-select',
+        value: selectedPage === null ? '' : String(selectedPage),
+        onChange: (ev) => {
+          const v = ev.target.value;
+          setSelectedPage(v === '未分頁' ? '未分頁' : Number(v));
+        }
+      },
+        pageNumbers.map((p) => e('option', { key: p, value: String(p) },
+          p === '未分頁' ? '未分頁' : `第 ${p} 頁`
+        ))
       ),
+      e('span', { className: 'album-page-count' }, `（${pageIdx + 1} / ${pageNumbers.length}）`),
       e('button', { className: 'calendar-nav-btn', onClick: goNextPage, disabled: pageIdx >= pageNumbers.length - 1 }, '›')
     ),
     e('div', { className: 'stamp-grid album-page-grid' },
