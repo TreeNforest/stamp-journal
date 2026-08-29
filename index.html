@@ -177,10 +177,10 @@
   }
 
   .app-title .seal-mark {
-    width: 30px; height: 30px; border: 2px solid var(--vermil); border-radius: 3px;
-    display: flex; align-items: center; justify-content: center; color: var(--vermil);
-    font-size: 15px; font-weight: 700; transform: rotate(-3deg); flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 8px; overflow: hidden;
+    flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.18);
   }
+  .app-title .seal-mark img { width: 100%; height: 100%; display: block; object-fit: cover; }
 
   .app-subtitle { font-size: calc(12.5px * var(--fs)); color: var(--ink-soft); letter-spacing: 0.04em; margin-top: 4px; }
   .header-actions { display: flex; gap: 8px; }
@@ -191,11 +191,13 @@
   }
   .theme-toggle-btn:hover { border-color: var(--steel); color: var(--ink); }
 
-  .nav-tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  .nav-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
   .nav-tab {
-    font-family: var(--font-display); font-size: calc(14px * var(--fs)); letter-spacing: 0.03em;
-    padding: 8px 18px; background: transparent; border: 1px solid var(--khaki);
+    flex: 1 1 0; min-width: 0;
+    font-family: var(--font-display); font-size: calc(12.5px * var(--fs)); letter-spacing: 0.02em;
+    padding: 8px 6px; background: transparent; border: 1px solid var(--khaki);
     border-radius: var(--radius); color: var(--ink-soft); cursor: pointer; transition: all 0.15s ease;
+    text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .nav-tab:hover { border-color: var(--steel); color: var(--ink); }
   .nav-tab.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
@@ -2974,7 +2976,10 @@ function App() {
   return e('div', { className: 'app-shell' },
     e('div', { className: 'app-header' },
       e('div', null,
-        e('div', { className: 'app-title' }, e('span', { className: 'seal-mark' }, '印'), '蓋印紀念冊'),
+        e('div', { className: 'app-title' },
+          e('span', { className: 'seal-mark' }, e('img', { src: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgcm9sZT0iaW1nIj4KICA8dGl0bGU+6JOL5Y2w57SA5b+15YaKIEFwcCDlnJbnpLogLSDmlrnmoYhGMiDlh7rooYDlpKflrZfvvIjloqjpn7vlupXoibLvvIk8L3RpdGxlPgogIDxkZWZzPgogICAgPHJhZGlhbEdyYWRpZW50IGlkPSJpbmt3YXNoIiBjeD0iMzIlIiBjeT0iMjglIiByPSI4NSUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjQzE3RTYzIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTUlIiBzdG9wLWNvbG9yPSIjQjc3MDVBIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzlDNUE0NiIvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CgogIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiBmaWxsPSJ1cmwoI2lua3dhc2gpIi8+CgogIDxlbGxpcHNlIGN4PSI0MTAiIGN5PSI0NDAiIHJ4PSIxNTAiIHJ5PSIxMTAiIGZpbGw9IiM5QzVBNDYiIG9wYWNpdHk9IjAuMzUiLz4KICA8ZWxsaXBzZSBjeD0iNzAiIGN5PSIzNjAiIHJ4PSIxMTAiIHJ5PSI5MCIgZmlsbD0iI0M5ODU2QiIgb3BhY2l0eT0iMC4zIi8+CiAgPGVsbGlwc2UgY3g9IjQyMCIgY3k9IjkwIiByeD0iOTAiIHJ5PSI3MCIgZmlsbD0iI0M5ODU2QiIgb3BhY2l0eT0iMC4yNSIvPgoKICA8dGV4dCB4PSIzMzAiIHk9IjQxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIKICAgICAgICBmb250LWZhbWlseT0iJ05vdG8gU2VyaWYgVEMnLCBzZXJpZiIgZm9udC1zaXplPSI0MzAiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNGQUY4RjQiPuWNsDwvdGV4dD4KCiAgPGNpcmNsZSBjeD0iOTIiIGN5PSI5OCIgcj0iMTUiIGZpbGw9IiNGQUY4RjQiLz4KICA8Y2lyY2xlIGN4PSIxMjIiIGN5PSIxMjgiIHI9IjcuNSIgZmlsbD0iI0ZBRjhGNCIgb3BhY2l0eT0iMC44NSIvPgogIDxjaXJjbGUgY3g9IjcwIiBjeT0iMTMwIiByPSI0IiBmaWxsPSIjRkFGOEY0IiBvcGFjaXR5PSIwLjY1Ii8+Cjwvc3ZnPgo=', alt: '' })),
+          '蓋印紀念冊'
+        ),
         e('div', { className: 'app-subtitle' }, `共 ${stamps.length} 枚印章 · ${categories.length} 個分類`)
       ),
       e('div', { className: 'header-actions' },
@@ -3089,7 +3094,7 @@ function App() {
     e('div', { className: 'nav-tabs' },
       e('button', { className: 'nav-tab' + (view === 'journal' ? ' active' : ''), onClick: () => setView('journal') }, '紀念冊'),
       e('button', { className: 'nav-tab' + (view === 'map' ? ' active' : ''), onClick: () => setView('map') }, '地圖'),
-      e('button', { className: 'nav-tab' + (view === 'wishlist' ? ' active' : ''), onClick: () => setView('wishlist') }, `待蓋清單${wishlist.length ? ' (' + wishlist.length + ')' : ''}`),
+      e('button', { className: 'nav-tab' + (view === 'wishlist' ? ' active' : ''), onClick: () => setView('wishlist') }, `待蓋${wishlist.length ? ' (' + wishlist.length + ')' : ''}`),
       e('button', { className: 'nav-tab' + (view === 'events' ? ' active' : ''), onClick: () => setView('events') }, `活動${events.length ? ' (' + events.length + ')' : ''}`)
     ),
 
